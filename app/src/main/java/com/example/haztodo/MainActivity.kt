@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     private val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
     lateinit var adapter: RecyclerView.Adapter<*>
     var todos: ArrayList<TodoItem> = ArrayList()
-    val requestService: RequestService = RequestService(resources.getString(R.string.todo_url))
+    val requestService: RequestService = RequestService("http://haz-generest.ap-southeast-1.elasticbeanstalk.com/haztodos")
 
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.IO + parentJob)
@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity() {
         txtDesc.visibility = View.GONE
         editDesc.setText(txtDesc.text)
         editDesc.visibility = View.VISIBLE
+        editDesc.requestFocus()
         doneBtn.visibility = View.VISIBLE
         deleteBtn.visibility = View.GONE
     }
@@ -165,10 +166,11 @@ class MainActivity : AppCompatActivity() {
         coroutineScope.launch(Dispatchers.Main) {
             withContext(Dispatchers.IO) {
                 try {
-                    requestService.deleteTodo(todos[index])
+                    requestService.deleteTodo(deleted)
                     Snackbar.make(recyclerView, "Todo deleted", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show()
                 } catch (e: Exception) {
+                    Log.d(TAG, e.toString())
                     withContext(Dispatchers.Main) {
                         Snackbar.make(recyclerView, "There was a problem deleting your todo", Snackbar.LENGTH_LONG)
                             .setAction("Action", null).show()
