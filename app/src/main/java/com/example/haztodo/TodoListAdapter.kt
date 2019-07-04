@@ -61,7 +61,7 @@ class TodoListAdapter(private val todoList: ArrayList<TodoItem>, private val del
 
         description.setText(todoList[listPosition].description)
 
-        val format = SimpleDateFormat("dd/MM/yyyy hh:mma", Locale.ENGLISH)
+        val format = SimpleDateFormat("d MMM, h:mma", Locale.ENGLISH)
         createdDate.setText(format.format(todoList[listPosition].createdDate))
     }
 
