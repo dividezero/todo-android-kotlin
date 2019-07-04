@@ -17,7 +17,6 @@ import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
-import java.lang.Exception
 
 
 class MainActivity : AppCompatActivity() {
@@ -30,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private val layoutManager: RecyclerView.LayoutManager = LinearLayoutManager(this)
     lateinit var adapter: RecyclerView.Adapter<*>
     var todos: ArrayList<TodoItem> = ArrayList()
-    val requestService: RequestService = RequestService("http://haz-generest.ap-southeast-1.elasticbeanstalk.com/haztodos")
+    lateinit var requestService: RequestService
 
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.IO + parentJob)
@@ -40,9 +39,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 //        setSupportActionBar(toolbar)
 
+        requestService = RequestService(resources.getString(R.string.todo_url))
+
         recyclerView = findViewById(R.id.main_recycler_view)
-        recyclerView.layoutManager = layoutManager
-        recyclerView.itemAnimator = DefaultItemAnimator()
+        recyclerView.let {
+            it.layoutManager = layoutManager
+            it.itemAnimator = DefaultItemAnimator()
+        }
 
         val activityContext = this
         coroutineScope.launch(Dispatchers.Main) {
@@ -50,9 +53,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     todos = requestService.getTodos()
                 } catch (e: Exception) {
-                    Snackbar.make(recyclerView, "Couldn't fetch todos", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show()
-
+                    displayNotice(recyclerView, "Couldn't fetch todos")
                     Log.d(TAG, e.toString())
                 }
             }
@@ -71,19 +72,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.action_settings -> true
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun displayNotice(view: View, text: String) {
+        Snackbar.make(view, text, Snackbar.LENGTH_LONG).show()
     }
 
     private fun addItem(view: View) {
@@ -96,8 +97,7 @@ class MainActivity : AppCompatActivity() {
                 val savedTodo = requestService.createTodo(newTodo)
                 newTodo.id = savedTodo.id
             }
-            Snackbar.make(view, "New todo added", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+            displayNotice(view, "New todo added")
         }
 
     }
@@ -112,12 +112,14 @@ class MainActivity : AppCompatActivity() {
         val doneBtn = parentLayout.findViewById<Button>(R.id.btn_done_edit)
         val deleteBtn = parentLayout.findViewById<Button>(R.id.btn_delete)
 
+        fab.visibility = View.GONE
         txtDesc.visibility = View.GONE
         editDesc.setText(txtDesc.text)
         editDesc.visibility = View.VISIBLE
         editDesc.requestFocus()
         doneBtn.visibility = View.VISIBLE
         deleteBtn.visibility = View.GONE
+        Utils.openKeyboard(this)
     }
 
     private fun doneEdit(v: View) {
@@ -136,20 +138,21 @@ class MainActivity : AppCompatActivity() {
         val oldText = todos[index].description
         todos[index].description = editDesc.text.toString()
 
+        Utils.closeKeyboard(this)
+        editDesc.clearFocus()
         txtDesc.visibility = View.VISIBLE
         editDesc.visibility = View.GONE
         doneBtn.visibility = View.GONE
         deleteBtn.visibility = View.VISIBLE
+        fab.visibility = View.VISIBLE
 
         coroutineScope.launch(Dispatchers.Main) {
             withContext(Dispatchers.IO) {
                 try {
                     requestService.putTodo(todos[index])
-                    Snackbar.make(recyclerView, "Todo saved", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show()
+                    displayNotice(recyclerView, "Todo saved")
                 } catch (e: Exception) {
-                    Snackbar.make(recyclerView, "There was a problem saving your todo", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show()
+                    displayNotice(recyclerView, "There was a problem saving your todo")
                     todos[index].description = oldText
                     txtDesc.text = oldText
                 }
@@ -167,13 +170,11 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 try {
                     requestService.deleteTodo(deleted)
-                    Snackbar.make(recyclerView, "Todo deleted", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show()
+                    displayNotice(recyclerView, "Todo deleted")
                 } catch (e: Exception) {
                     Log.d(TAG, e.toString())
                     withContext(Dispatchers.Main) {
-                        Snackbar.make(recyclerView, "There was a problem deleting your todo", Snackbar.LENGTH_LONG)
-                            .setAction("Action", null).show()
+                        displayNotice(recyclerView, "There was a problem deleting your todo")
                         todos.add(index, deleted)
                         adapter.notifyItemInserted(index)
                     }
