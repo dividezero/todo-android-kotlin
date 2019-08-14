@@ -1,7 +1,13 @@
 <resources>
     <string name="app_name">HazTodo</string>
-    <string name="todo_url">http://haz-generest.ap-southeast-1.elasticbeanstalk.com/haztodos</string>
+    <string name="todo_url">http://generest-env.dgyian4tz6.ap-southeast-1.elasticbeanstalk.com/haztodos</string>
     <string name="action_settings">Settings</string>
     <string name="action_done">DONE</string>
     <string name="action_delete">DELETE</string>
+    <string name="message_fetch_todos_falied">Couldn\'t fetch todos. Offline mode enabled</string>
+    <string name="message_add_todos_success">New todo added</string>
+    <string name="message_save_todos_success">Todo saved</string>
+    <string name="message_save_todos_failed">There was a problem saving your todo</string>
+    <string name="message_delete_todos_success">Todo deleted</string>
+    <string name="message_delete_todos_failed">There was a problem deleting your todo</string>
 </resources>

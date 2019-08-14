@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
@@ -30,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var adapter: RecyclerView.Adapter<*>
     var todos: ArrayList<TodoItem> = ArrayList()
     lateinit var requestService: RequestService
+    var offlineMode: Boolean = false
 
     private val parentJob = Job()
     private val coroutineScope = CoroutineScope(Dispatchers.IO + parentJob)
@@ -53,7 +55,8 @@ class MainActivity : AppCompatActivity() {
                 try {
                     todos = requestService.getTodos()
                 } catch (e: Exception) {
-                    displayNotice(recyclerView, "Couldn't fetch todos")
+                    displayNotice(recyclerView, resources.getString(R.string.message_fetch_todos_falied))
+                    offlineMode = true
                     Log.d(TAG, e.toString())
                 }
             }
@@ -69,6 +72,15 @@ class MainActivity : AppCompatActivity() {
         fab.setOnClickListener { view ->
             addItem(view)
         }
+
+        val swipeHandler = object : SwipeToDeleteCallback(this) {
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                removeItem(viewHolder.adapterPosition)
+            }
+        }
+
+        val itemTouchHelper = ItemTouchHelper(swipeHandler)
+        itemTouchHelper.attachToRecyclerView(recyclerView)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -92,13 +104,14 @@ class MainActivity : AppCompatActivity() {
         todos.add(newTodo)
         adapter.notifyItemInserted(todos.size)
 
-        coroutineScope.launch(Dispatchers.Main) {
-            withContext(Dispatchers.IO) {
-                val savedTodo = requestService.createTodo(newTodo)
-                newTodo.id = savedTodo.id
+        if (!offlineMode)
+            coroutineScope.launch(Dispatchers.Main) {
+                withContext(Dispatchers.IO) {
+                    val savedTodo = requestService.createTodo(newTodo)
+                    newTodo.id = savedTodo.id
+                }
+                displayNotice(view, resources.getString(R.string.message_add_todos_success))
             }
-            displayNotice(view, "New todo added")
-        }
 
     }
 
@@ -146,43 +159,48 @@ class MainActivity : AppCompatActivity() {
         deleteBtn.visibility = View.VISIBLE
         fab.visibility = View.VISIBLE
 
-        coroutineScope.launch(Dispatchers.Main) {
-            withContext(Dispatchers.IO) {
-                try {
-                    requestService.putTodo(todos[index])
-                    displayNotice(recyclerView, "Todo saved")
-                } catch (e: Exception) {
-                    displayNotice(recyclerView, "There was a problem saving your todo")
-                    todos[index].description = oldText
-                    txtDesc.text = oldText
+        if (!offlineMode)
+            coroutineScope.launch(Dispatchers.Main) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        requestService.putTodo(todos[index])
+                        displayNotice(recyclerView, resources.getString(R.string.message_save_todos_success))
+                    } catch (e: Exception) {
+                        displayNotice(recyclerView, resources.getString(R.string.message_save_todos_failed))
+                        todos[index].description = oldText
+                        txtDesc.text = oldText
+                    }
                 }
             }
-        }
     }
 
     private fun removeItem(v: View) {
         val index = recyclerView.getChildLayoutPosition(v.getTag() as LinearLayout)
+        removeItem(index)
+    }
+
+    private fun removeItem(index: Int) {
         Log.d(TAG, "deleting at ${index}")
         val deleted = todos.removeAt(index)
         adapter.notifyItemRemoved(index)
 
-        coroutineScope.launch(Dispatchers.Main) {
-            withContext(Dispatchers.IO) {
-                try {
-                    requestService.deleteTodo(deleted)
-                    displayNotice(recyclerView, "Todo deleted")
-                } catch (e: Exception) {
-                    Log.d(TAG, e.toString())
-                    withContext(Dispatchers.Main) {
-                        displayNotice(recyclerView, "There was a problem deleting your todo")
-                        todos.add(index, deleted)
-                        adapter.notifyItemInserted(index)
+        if (!offlineMode)
+            coroutineScope.launch(Dispatchers.Main) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        requestService.deleteTodo(deleted)
+                        displayNotice(recyclerView, resources.getString(R.string.message_delete_todos_success))
+                    } catch (e: Exception) {
+                        Log.d(TAG, e.toString())
+                        withContext(Dispatchers.Main) {
+                            displayNotice(recyclerView, resources.getString(R.string.message_delete_todos_failed))
+                            todos.add(index, deleted)
+                            adapter.notifyItemInserted(index)
+                        }
                     }
                 }
+
             }
-
-        }
-
     }
 
     inner class EditClickListener constructor(val context: Context) : View.OnClickListener {
